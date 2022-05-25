@@ -20,33 +20,50 @@ const modes = ['light', 'dark'] as const;
 type Mode = typeof modes[number];
 
 interface DarkModeParams {
-  /** The class target in the preview iframe */
-  classTarget: string;
   /** The current mode the storybook is set to */
   current: Mode;
   /** The dark theme for storybook */
   dark: ThemeVars;
-  /** The dark class name for the preview iframe */
+  /** The dark class name for the manager app or preview iframe */
   darkClass: string;
   /** The light theme for storybook */
   light: ThemeVars;
-  /** The light class name for the preview iframe */
+  /** The light class name for the manager app or preview iframe */
   lightClass: string;
-  /** Apply mode to iframe */
-  stylePreview: boolean;
+  /** Configure how we want to set dark mode within the preview iframe **/
+  previewParams: DarkModePreviewParams;
+}
+
+// How do we want to edit elements in the preview/canvas iframe
+interface DarkModePreviewParams {
+  /** The element to target within the preview iframe */
+  classTarget: string;
+  /** The element to target within the preview iframe **/
+  attributeTarget: string;
+  /** The name (or key) of the attribute **/
+  attributeName: 'theme';
+  /** The attribute value when in dark mode **/
+  darkAttribute: string;
+  /** The attribute value when in light mode **/
+  lightAttribute: string;
 }
 
 const STORAGE_KEY = 'sb-addon-themes-3';
 export const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
 
-const defaultParams: Required<Omit<DarkModeParams, 'current'>> = {
-  classTarget: 'body',
+const defaultParams: Required<Omit<DarkModeParams, 'current' | 'previewParams'>> = {
   dark: themes.dark,
   darkClass: 'dark',
   light: themes.light,
   lightClass: 'light',
-  stylePreview: false,
 };
+
+const defaultPreviewParams: Required<Omit<DarkModePreviewParams, 'attributeTarget'>> = {
+  classTarget: 'body',
+  attributeName: 'theme',
+  darkAttribute: 'dark',
+  lightAttribute: 'light',
+}
 
 /** Persist the dark mode settings in localStorage */
 export const updateStore = (newStore: DarkModeParams) => {
@@ -64,6 +81,25 @@ const toggleDarkClass = (el: HTMLElement, { current, darkClass = defaultParams.d
   }
 }
 
+/** Add the light/dark attribute value **/
+const toggleDarkAttribute = (
+  el: HTMLElement,
+  {
+    current,
+    previewParams: {
+      attributeName = defaultPreviewParams.attributeName,
+      darkAttribute = defaultPreviewParams.darkAttribute,
+      lightAttribute = defaultPreviewParams.lightAttribute
+    }
+  }: DarkModeParams,
+) => {
+  if (current === 'dark') {
+    el.setAttribute(attributeName, darkAttribute);
+  } else {
+    el.setAttribute(attributeName, lightAttribute);
+  }
+}
+
 /** Update the preview iframe class */
 const updatePreview = (store: DarkModeParams) => {
   const iframe = document.getElementById('storybook-preview-iframe') as HTMLIFrameElement;
@@ -73,13 +109,19 @@ const updatePreview = (store: DarkModeParams) => {
   }
 
   const iframeDocument = iframe.contentDocument || iframe.contentWindow?.document;
-  const target = iframeDocument?.querySelector(store.classTarget) as HTMLElement;
-
-  if (!target) {
+  const classTarget = iframeDocument?.querySelector(store.previewParams.classTarget) as HTMLElement;
+  if (!classTarget) {
     return;
   }
 
-  toggleDarkClass(target, store);
+  toggleDarkClass(classTarget, store);
+
+  const attributeTarget = iframeDocument?.querySelector(store.previewParams.attributeTarget) as HTMLElement;;
+  if (!attributeTarget) {
+    return;
+  }
+
+  toggleDarkAttribute(attributeTarget, store);
 };
 
 /** Update the manager iframe class */
@@ -127,7 +169,7 @@ interface StorybookApiHook {
 export const DarkMode = ({ api }: StorybookApiHook) => {
   const [isDark, setDark] = React.useState(prefersDark.matches);
   const darkModeParams = useParameter<Partial<DarkModeParams>>('darkMode', {});
-  const { current: defaultMode, stylePreview, ...params } = darkModeParams
+  const { current: defaultMode, previewParams, ...params } = darkModeParams
 
   const channel = api.getChannel();
 
@@ -143,11 +185,11 @@ export const DarkMode = ({ api }: StorybookApiHook) => {
       api.getChannel().emit(DARK_MODE_EVENT_NAME, mode === 'dark');
       updateManager(currentStore)
 
-      if (stylePreview) {
+      if (previewParams) {
         updatePreview(currentStore);
       }
     },
-    [api, stylePreview]
+    [api, previewParams]
   );
 
   /** Update the theme settings in localStorage, react, and storybook */
