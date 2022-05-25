@@ -4,3 +4,7 @@ dist/
 
 # IDE files
 .idea/
+.vscode/
+
+# npm
+package-lock.json
