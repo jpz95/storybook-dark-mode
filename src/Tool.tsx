@@ -19,7 +19,7 @@ import Moon from './icons/Moon';
 const modes = ['light', 'dark'] as const;
 type Mode = typeof modes[number];
 
-interface DarkModeStore {
+interface DarkModeParams {
   /** The class target in the preview iframe */
   classTarget: string;
   /** The current mode the storybook is set to */
@@ -39,7 +39,7 @@ interface DarkModeStore {
 const STORAGE_KEY = 'sb-addon-themes-3';
 export const prefersDark = window.matchMedia('(prefers-color-scheme: dark)');
 
-const defaultParams: Required<Omit<DarkModeStore, 'current'>> = {
+const defaultParams: Required<Omit<DarkModeParams, 'current'>> = {
   classTarget: 'body',
   dark: themes.dark,
   darkClass: 'dark',
@@ -49,12 +49,12 @@ const defaultParams: Required<Omit<DarkModeStore, 'current'>> = {
 };
 
 /** Persist the dark mode settings in localStorage */
-export const updateStore = (newStore: DarkModeStore) => {
+export const updateStore = (newStore: DarkModeParams) => {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(newStore));
 };
 
 /** Add the light/dark class to an element */
-const toggleDarkClass = (el: HTMLElement, { current, darkClass = defaultParams.darkClass, lightClass = defaultParams.lightClass }: DarkModeStore) => {
+const toggleDarkClass = (el: HTMLElement, { current, darkClass = defaultParams.darkClass, lightClass = defaultParams.lightClass }: DarkModeParams) => {
   if (current === 'dark') {
     el.classList.add(darkClass);
     el.classList.remove(lightClass);
@@ -65,7 +65,7 @@ const toggleDarkClass = (el: HTMLElement, { current, darkClass = defaultParams.d
 }
 
 /** Update the preview iframe class */
-const updatePreview = (store: DarkModeStore) => {
+const updatePreview = (store: DarkModeParams) => {
   const iframe = document.getElementById('storybook-preview-iframe') as HTMLIFrameElement;
 
   if (!iframe) {
@@ -83,7 +83,7 @@ const updatePreview = (store: DarkModeStore) => {
 };
 
 /** Update the manager iframe class */
-const updateManager = (store: DarkModeStore) => {
+const updateManager = (store: DarkModeParams) => {
   const manager = document.querySelector('body');
 
   if (!manager) {
@@ -94,11 +94,11 @@ const updateManager = (store: DarkModeStore) => {
 };
 
 /** Update changed dark mode settings and persist to localStorage  */
-export const store = (userTheme: Partial<DarkModeStore> = {}): DarkModeStore => {
+export const store = (userTheme: Partial<DarkModeParams> = {}): DarkModeParams => {
   const storedItem = window.localStorage.getItem(STORAGE_KEY);
 
   if (typeof storedItem === 'string') {
-    const stored: DarkModeStore = JSON.parse(storedItem);
+    const stored: DarkModeParams = JSON.parse(storedItem);
 
     if (userTheme) {
       if (userTheme.dark && !equal(stored.dark, userTheme.dark)) {
@@ -115,18 +115,18 @@ export const store = (userTheme: Partial<DarkModeStore> = {}): DarkModeStore => 
     return stored;
   }
 
-  return { ...defaultParams, ...userTheme } as DarkModeStore;
+  return { ...defaultParams, ...userTheme } as DarkModeParams;
 };
 
-interface DarkModeProps {
+interface StorybookApiHook {
   /** The storybook API */
   api: API;
 }
 
 /** A toolbar icon to toggle between dark and light themes in storybook */
-export const DarkMode = ({ api }: DarkModeProps) => {
+export const DarkMode = ({ api }: StorybookApiHook) => {
   const [isDark, setDark] = React.useState(prefersDark.matches);
-  const darkModeParams = useParameter<Partial<DarkModeStore>>('darkMode', {});
+  const darkModeParams = useParameter<Partial<DarkModeParams>>('darkMode', {});
   const { current: defaultMode, stylePreview, ...params } = darkModeParams
 
   const channel = api.getChannel();
